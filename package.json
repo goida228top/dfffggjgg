@@ -4,12 +4,12 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"vite\" \"tsx server/index.ts\"",
+    "dev": "node server/index.js",
     "build": "vite build",
-    "start": "tsx server/index.ts",
+    "start": "node server/index.js",
     "preview": "vite preview",
     "clean": "rm -rf dist",
-    "lint": "tsc --noEmit"
+    "lint": "echo 'No TS to lint'"
   },
   "dependencies": {
     "@google/genai": "^1.29.0",
@@ -27,14 +27,9 @@
     "react-resizable-panels": "^4.7.2",
     "socket.io": "^4.8.3",
     "socket.io-client": "^4.8.3",
-    "tsx": "^4.21.0",
-    "typescript": "~5.8.2",
     "vite": "^6.2.0"
   },
   "devDependencies": {
-    "@types/cors": "^2.8.19",
-    "@types/express": "^4.17.25",
-    "@types/node": "^22.14.0",
     "autoprefixer": "^10.4.21",
     "concurrently": "^9.2.1",
     "tailwindcss": "^4.1.14"

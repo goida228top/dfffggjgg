@@ -1,80 +1,73 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Playfair+Display:wght@400;600;700&family=JetBrains+Mono:wght@400;500;700&family=Comic+Neue:wght@400;700&display=swap');
 @import "tailwindcss";
 
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
 :root {
-  --glass-bg: #E0E5EC;
-  --glass-panel: rgba(255, 255, 255, 0.4);
-  --glass-border: rgba(255, 255, 255, 0.5);
-  --glass-text: #1e293b;
-  --board-bg: #CDE6D0;
-  --font-main: 'Inter', sans-serif;
-}
-
-[data-font="sans"] {
-  --font-main: 'Inter', sans-serif;
-}
-
-[data-font="serif"] {
-  --font-main: 'Playfair Display', serif;
-}
-
-[data-font="mono"] {
-  --font-main: 'JetBrains Mono', monospace;
-}
-
-[data-font="comic"] {
-  --font-main: 'Comic Neue', cursive;
+  --glass-bg: rgba(255, 255, 255, 0.15);
+  --glass-border: rgba(255, 255, 255, 0.2);
+  --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.15);
 }
 
 [data-theme="dark"] {
-  --glass-bg: #0f172a;
-  --glass-panel: rgba(15, 23, 42, 0.6);
+  --glass-bg: rgba(0, 0, 0, 0.3);
   --glass-border: rgba(255, 255, 255, 0.1);
-  --glass-text: #f8fafc;
-  --board-bg: #1e293b;
-}
-
-[data-theme="neon"] {
-  --glass-bg: #2e0249;
-  --glass-panel: rgba(87, 10, 87, 0.5);
-  --glass-border: rgba(169, 16, 121, 0.5);
-  --glass-text: #ff00ff;
-  --board-bg: #2e0249;
-}
-
-[data-theme="pastel"] {
-  --glass-bg: #fdf6e3;
-  --glass-panel: rgba(255, 228, 225, 0.5);
-  --glass-border: rgba(255, 182, 193, 0.5);
-  --glass-text: #5c4d4d;
-  --board-bg: #e0f7fa;
-}
-
-body {
-  background-color: var(--glass-bg);
-  color: var(--glass-text);
-  font-family: var(--font-main);
-  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .glass {
-  background: var(--glass-panel);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--glass-border);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.1);
-}
-
-.glass-panel {
-  background: var(--glass-panel);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
+  box-shadow: var(--glass-shadow);
 }
 
 .glass-board {
-  background: var(--board-bg);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--glass-border);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(8px);
+  border: 8px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 25px 60px rgba(0, 0, 0, 0.4);
+}
+
+.glass-panel {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: #f0f2f5;
+  color: #1a1a1a;
+  overflow: hidden;
+  font-family: var(--font-sans);
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+img {
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+
+[data-theme="dark"] body {
+  background: #0f172a;
+  color: #f8fafc;
+}
+
+[data-font="serif"] {
+  font-family: serif;
+}
+
+[data-font="mono"] {
+  font-family: var(--font-mono);
+}
+
+[data-font="comic"] {
+  font-family: "Comic Sans MS", cursive;
 }
