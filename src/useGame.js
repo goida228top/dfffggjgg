@@ -52,21 +52,30 @@ export function useMonopolyGame() {
       setRoomsList(rooms);
     });
 
-    socket.on("room_joined", (id, name, settings) => {
+    socket.on("room_joined", ({ id, name, settings, isHost: serverIsHost, gameState: serverGameState }) => {
       setRoomId(id);
       localStorage.setItem("monopoly_room_id", id);
       setRoomName(name);
       setTotalPlayers(settings.totalPlayers || 4);
-      setGameState((prev) => ({
-        ...prev,
-        maxLaps: settings.maxLaps,
-        phase: "setup",
-      }));
+      setIsHost(serverIsHost);
+      if (serverGameState) {
+        setGameState(serverGameState);
+      } else {
+        setGameState((prev) => ({
+          ...prev,
+          maxLaps: settings.maxLaps,
+          phase: "setup",
+        }));
+      }
     });
 
     socket.on("room_users", (users) => {
-      setLobbyUsers(users);
-      const me = users.find((u) => u.id === stateRef.current.myId);
+      const mappedUsers = users.map((u) => ({
+        ...u,
+        isLocal: u.id === myId || !!u.isBot,
+      }));
+      setLobbyUsers(mappedUsers);
+      const me = mappedUsers.find((u) => u.id === myId);
       if (me) {
         setIsHost(me.isHost);
       }
@@ -228,8 +237,8 @@ export function useMonopolyGame() {
       inJail: false,
       jailTurns: 0,
       laps: 0,
-      isBot: u.isBot,
-      isLocal: u.isLocal,
+      isBot: !!u.isBot,
+      isLocal: u.id === myId || !!u.isBot,
     }));
     setGameState((prev) => ({
       ...prev,
@@ -274,7 +283,15 @@ export function useMonopolyGame() {
       return;
     }
     const state = stateRef.current.gameState;
+    if (!state || !state.players || state.currentPlayerIndex === undefined) {
+      console.error("Invalid game state in rollDice", state);
+      return;
+    }
     const currentPlayer = state.players[state.currentPlayerIndex];
+    if (!currentPlayer) {
+      console.error("Current player not found in rollDice", state.currentPlayerIndex);
+      return;
+    }
     playSound("roll", volume);
     setGameState((prev) => ({ ...prev, phase: "rolling", statusMessage: currentPlayer.inJail ? t("rollingForDoublesStatus", { player: currentPlayer.name }) : t("rollingDice", { player: currentPlayer.name }) }));
     let d1 = 1,
@@ -363,9 +380,15 @@ export function useMonopolyGame() {
   };
 
   const movePlayer = async (steps, startingMoney) => {
-    setGameState((prev) => ({ ...prev, phase: "moving", statusMessage: t("movingStatus", { player: stateRef.current.gameState.players[stateRef.current.gameState.currentPlayerIndex].name }) }));
+    const initialState = stateRef.current.gameState;
+    if (!initialState || !initialState.players || initialState.currentPlayerIndex === undefined) return;
+    const initialPlayer = initialState.players[initialState.currentPlayerIndex];
+    if (!initialPlayer) return;
+
+    setGameState((prev) => ({ ...prev, phase: "moving", statusMessage: t("movingStatus", { player: initialPlayer.name }) }));
     let state = stateRef.current.gameState;
     let currentPlayer = state.players[state.currentPlayerIndex];
+    if (!currentPlayer) return;
     let currentPos = currentPlayer.position;
     let currentMoney =
       startingMoney !== undefined ? startingMoney : currentPlayer.money;
@@ -407,8 +430,11 @@ export function useMonopolyGame() {
 
   const handleLanding = (pos, currentMoney) => {
     const state = stateRef.current.gameState;
+    if (!state || !state.players || state.currentPlayerIndex === undefined) return;
     const currentPlayer = state.players[state.currentPlayerIndex];
+    if (!currentPlayer) return;
     const square = state.board[pos];
+    if (!square) return;
     addLog("landedOn", { player: currentPlayer.name, square: square.name, price: square.price });
 
     if (square.name === "goToJailSquare") {
@@ -485,10 +511,11 @@ export function useMonopolyGame() {
         }
       } else if (square.owner !== currentPlayer.id) {
         const rent = calculateRent(square, state.board, state.dice);
+        const ownerPlayer = state.players.find(p => p.id === square.owner);
         addLog("paysRent", {
           player: currentPlayer.name,
           rent,
-          owner: state.players[square.owner].name,
+          owner: ownerPlayer?.name || "Unknown",
         });
         playSound("pay", volume);
         setGameState((prev) => ({
@@ -546,7 +573,9 @@ export function useMonopolyGame() {
       return;
     }
     const state = stateRef.current.gameState;
+    if (!state || !state.players || state.currentPlayerIndex === undefined) return;
     const currentPlayer = state.players[state.currentPlayerIndex];
+    if (!currentPlayer) return;
     const squareIndex = state.board.findIndex(s => s.id === propertyId);
     const square = state.board[squareIndex];
     
@@ -697,12 +726,15 @@ export function useMonopolyGame() {
     if (!isHost) { socket.emit("client_action", roomId, { type: "PROPOSE_TRADE", trade }); return; }
     setGameState(prev => ({ ...prev, tradeOffer: trade }));
     
-    const targetPlayer = stateRef.current.gameState.players.find(p => p.id === trade.to);
+    const state = stateRef.current.gameState;
+    if (!state || !state.players) return;
+    const targetPlayer = state.players.find(p => p.id === trade.to);
     if (targetPlayer && targetPlayer.isBot) {
       setTimeout(() => {
-        const state = stateRef.current.gameState;
-        const offerValue = trade.offerMoney + trade.offerProperties.reduce((sum, id) => sum + (state.board.find(s => s.id === id)?.price || 0), 0);
-        const requestValue = trade.requestMoney + trade.requestProperties.reduce((sum, id) => sum + (state.board.find(s => s.id === id)?.price || 0), 0);
+        const currentState = stateRef.current.gameState;
+        if (!currentState || !currentState.board) return;
+        const offerValue = trade.offerMoney + trade.offerProperties.reduce((sum, id) => sum + (currentState.board.find(s => s.id === id)?.price || 0), 0);
+        const requestValue = trade.requestMoney + trade.requestProperties.reduce((sum, id) => sum + (currentState.board.find(s => s.id === id)?.price || 0), 0);
         
         if (offerValue >= requestValue) {
           acceptTrade();
@@ -779,9 +811,11 @@ export function useMonopolyGame() {
       return;
     }
     const state = stateRef.current.gameState;
+    if (!state || !state.players || state.currentPlayerIndex === undefined) return;
     const currentPlayer = state.players[state.currentPlayerIndex];
+    if (!currentPlayer) return;
     const square = state.board[currentPlayer.position];
-    if (!square.price) return;
+    if (!square || !square.price) return;
     if (currentPlayer.money >= square.price) {
       playSound("buy", volume);
       const newBoard = [...state.board];
@@ -850,9 +884,11 @@ export function useMonopolyGame() {
       return;
     }
     const state = stateRef.current.gameState;
-    let nextState = { ...state };
+    if (!state || !state.players || state.currentPlayerIndex === undefined) return;
     const currentPlayer = state.players[state.currentPlayerIndex];
+    if (!currentPlayer) return;
 
+    let nextState = { ...state };
     if (currentPlayer.money < 0) {
       // Bankrupt!
       nextState.players = nextState.players.map(p => p.id === currentPlayer.id ? { ...p, bankrupt: true } : p);
@@ -903,7 +939,10 @@ export function useMonopolyGame() {
       return;
     }
     const state = stateRef.current.gameState;
+    if (!state || !state.players || state.currentPlayerIndex === undefined) return;
     const currentPlayer = state.players[state.currentPlayerIndex];
+    if (!currentPlayer) return;
+
     if (currentPlayer.money >= 50) {
       playSound("pay", volume);
       addLog("paysToLeaveJail", { player: currentPlayer.name });
@@ -923,28 +962,40 @@ export function useMonopolyGame() {
 
   const handleClientAction = (action, clientId) => {
     const state = stateRef.current.gameState;
+    if (!state || !state.players || state.currentPlayerIndex === undefined) {
+      console.error("handleClientAction: Invalid game state", state);
+      return;
+    }
     const currentPlayer = state.players[state.currentPlayerIndex];
-    
-    // For trade responses, the sender must be the target of the trade
+    if (!currentPlayer) {
+      console.error("handleClientAction: Current player not found", state.currentPlayerIndex);
+      return;
+    }
+
+    // Validation logic
+    let isAuthorized = false;
+
     if (action.type === "ACCEPT_TRADE" || action.type === "REJECT_TRADE") {
       const trade = state.tradeOffer;
       if (!trade) return;
-      const targetPlayer = state.players.find(p => p.id === trade.to);
-      if (targetPlayer && targetPlayer.id !== clientId) {
-        if (!targetPlayer.isLocal || clientId !== stateRef.current.myId) return;
-      }
+      // The person accepting/rejecting must be the target of the trade
+      isAuthorized = (trade.to === clientId) || (trade.to === myId && clientId === myId);
     } else if (action.type === "PROPOSE_TRADE") {
-      // Anyone can propose a trade at any time
-      const trade = action.trade;
-      const fromPlayer = state.players.find(p => p.id === trade.from);
-      if (fromPlayer && fromPlayer.id !== clientId) {
-        if (!fromPlayer.isLocal || clientId !== stateRef.current.myId) return;
-      }
+      // Anyone can propose a trade if it's their turn
+      isAuthorized = (currentPlayer.id === clientId);
     } else {
-      // For all other actions, only allow if it's the current player's turn
-      if (currentPlayer.id !== clientId) {
-        if (!currentPlayer.isLocal || clientId !== stateRef.current.myId) return;
-      }
+      // For most actions, it must be the current player's turn
+      isAuthorized = (currentPlayer.id === clientId);
+    }
+
+    // If the host is performing an action for a local player (bot or host's own player), it's authorized
+    if (clientId === myId && currentPlayer.isLocal) {
+      isAuthorized = true;
+    }
+
+    if (!isAuthorized) {
+      console.warn(`handleClientAction: Unauthorized action ${action.type} from ${clientId}. Current player is ${currentPlayer.id}`);
+      return;
     }
 
     switch (action.type) {
@@ -1028,11 +1079,13 @@ export function useMonopolyGame() {
     if (
       state.phase === "setup" ||
       state.phase === "finished" ||
-      state.players.length === 0
+      !state.players ||
+      state.players.length === 0 ||
+      state.currentPlayerIndex === undefined
     )
       return;
     const currentPlayer = state.players[state.currentPlayerIndex];
-    if (!currentPlayer.isBot || currentPlayer.bankrupt) return;
+    if (!currentPlayer || !currentPlayer.isBot || currentPlayer.bankrupt) return;
 
     const timer = setTimeout(() => {
       if (state.phase === "roll") {

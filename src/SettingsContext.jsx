@@ -60,6 +60,7 @@ const translations = {
     fontComic: "Comic",
     currency: "Currency",
     addBot: "Add Bot",
+    addLocalPlayer: "Add Local Player",
     removeBot: "Remove Bot",
     lapsToWin: "Laps to Win",
     leaveRoom: "Leave Room",
@@ -68,6 +69,7 @@ const translations = {
     player: "Player",
     localPlayer: "Local",
     bot: "Bot",
+    botName: "Bot {num}",
     // Log messages
     gameStarted: "Game started!",
     bankruptLog: "{player} went bankrupt and is out of the game!",
@@ -264,6 +266,7 @@ const translations = {
     fontComic: "Комикс",
     currency: "Валюта",
     addBot: "Добавить бота",
+    addLocalPlayer: "Добавить игрока",
     removeBot: "Удалить бота",
     lapsToWin: "Кругов для победы",
     leaveRoom: "Выйти из комнаты",
@@ -272,6 +275,7 @@ const translations = {
     player: "Игрок",
     localPlayer: "Локальный",
     bot: "Бот",
+    botName: "Бот {num}",
     // Log messages
     gameStarted: "Игра началась!",
     bankruptLog: "{player} обанкротился и выбывает из игры!",

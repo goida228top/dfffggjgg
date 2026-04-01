@@ -104,9 +104,12 @@ async function startServer() {
           isLocal: true,
         });
       }
-      socket.emit("room_joined", roomId, room.name, {
-        ...room.settings,
-        totalPlayers: room.totalPlayers,
+      socket.emit("room_joined", {
+        id: roomId,
+        name: room.name,
+        settings: { ...room.settings, totalPlayers: room.totalPlayers },
+        isHost: true,
+        gameState: room.gameState || null
       });
       io.to(roomId).emit("room_users", Array.from(room.users.values()));
       broadcastRooms();
@@ -121,9 +124,12 @@ async function startServer() {
           user.socketId = socket.id;
           socketMap.set(socket.id, { userId, roomId });
           socket.join(roomId);
-          socket.emit("room_joined", roomId, room.name, {
-            ...room.settings,
-            totalPlayers: room.totalPlayers,
+          socket.emit("room_joined", {
+            id: roomId,
+            name: room.name,
+            settings: { ...room.settings, totalPlayers: room.totalPlayers },
+            isHost: room.hostId === userId,
+            gameState: room.gameState || null
           });
           io.to(roomId).emit("room_users", Array.from(room.users.values()));
           
@@ -149,9 +155,12 @@ async function startServer() {
         existingUser.socketId = socket.id;
         socketMap.set(socket.id, { userId: user.id, roomId });
         socket.join(roomId);
-        socket.emit("room_joined", roomId, room.name, {
-          ...room.settings,
-          totalPlayers: room.totalPlayers,
+        socket.emit("room_joined", {
+          id: roomId,
+          name: room.name,
+          settings: { ...room.settings, totalPlayers: room.totalPlayers },
+          isHost: room.hostId === user.id,
+          gameState: room.gameState || null
         });
         io.to(roomId).emit("room_users", Array.from(room.users.values()));
         
@@ -198,9 +207,12 @@ async function startServer() {
           token: assignedToken,
           color: assignedColor,
         });
-        socket.emit("room_joined", roomId, room.name, {
-          ...room.settings,
-          totalPlayers: room.totalPlayers,
+        socket.emit("room_joined", {
+          id: roomId,
+          name: room.name,
+          settings: { ...room.settings, totalPlayers: room.totalPlayers },
+          isHost: room.hostId === user.id,
+          gameState: room.gameState || null
         });
         io.to(roomId).emit("room_users", Array.from(room.users.values()));
         broadcastRooms();

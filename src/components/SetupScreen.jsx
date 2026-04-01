@@ -146,6 +146,13 @@ export const SetupScreen = ({ game }) => {
           {game.isHost && (
             <>
               <button
+                onClick={() => game.addLocalPlayer()}
+                disabled={game.lobbyUsers.length >= 6}
+                className="flex-1 py-4 glass rounded-2xl font-bold hover:bg-white/10 transition-all flex items-center justify-center gap-2"
+              >
+                <User size={20} /> {t("addLocalPlayer")}
+              </button>
+              <button
                 onClick={() => game.addBot()}
                 disabled={game.lobbyUsers.length >= 6}
                 className="flex-1 py-4 glass rounded-2xl font-bold hover:bg-white/10 transition-all flex items-center justify-center gap-2"
