@@ -273,7 +273,7 @@ export function useMonopolyGame() {
       socket.emit("client_action", roomId, { type: "ROLL" });
       return;
     }
-    const state = stateRef.current;
+    const state = stateRef.current.gameState;
     const currentPlayer = state.players[state.currentPlayerIndex];
     playSound("roll", volume);
     setGameState((prev) => ({ ...prev, phase: "rolling", statusMessage: currentPlayer.inJail ? t("rollingForDoublesStatus", { player: currentPlayer.name }) : t("rollingDice", { player: currentPlayer.name }) }));
@@ -363,8 +363,8 @@ export function useMonopolyGame() {
   };
 
   const movePlayer = async (steps, startingMoney) => {
-    setGameState((prev) => ({ ...prev, phase: "moving", statusMessage: t("movingStatus", { player: stateRef.current.players[stateRef.current.currentPlayerIndex].name }) }));
-    let state = stateRef.current;
+    setGameState((prev) => ({ ...prev, phase: "moving", statusMessage: t("movingStatus", { player: stateRef.current.gameState.players[stateRef.current.gameState.currentPlayerIndex].name }) }));
+    let state = stateRef.current.gameState;
     let currentPlayer = state.players[state.currentPlayerIndex];
     let currentPos = currentPlayer.position;
     let currentMoney =
@@ -396,7 +396,7 @@ export function useMonopolyGame() {
       await new Promise((res) => setTimeout(res, 400));
     }
 
-    state = stateRef.current;
+    state = stateRef.current.gameState;
     currentPlayer = state.players[state.currentPlayerIndex];
     if (checkWinCondition(state.players, state.maxLaps)) {
       return;
@@ -406,7 +406,7 @@ export function useMonopolyGame() {
   };
 
   const handleLanding = (pos, currentMoney) => {
-    const state = stateRef.current;
+    const state = stateRef.current.gameState;
     const currentPlayer = state.players[state.currentPlayerIndex];
     const square = state.board[pos];
     addLog("landedOn", { player: currentPlayer.name, square: square.name, price: square.price });
@@ -545,7 +545,7 @@ export function useMonopolyGame() {
       socket.emit("client_action", roomId, { type: "BUILD_HOUSE", propertyId });
       return;
     }
-    const state = stateRef.current;
+    const state = stateRef.current.gameState;
     const currentPlayer = state.players[state.currentPlayerIndex];
     const squareIndex = state.board.findIndex(s => s.id === propertyId);
     const square = state.board[squareIndex];
@@ -604,7 +604,7 @@ export function useMonopolyGame() {
 
   const mortgageProperty = (propertyId) => {
     if (!isHost) { socket.emit("client_action", roomId, { type: "MORTGAGE", propertyId }); return; }
-    const state = stateRef.current;
+    const state = stateRef.current.gameState;
     const currentPlayer = state.players[state.currentPlayerIndex];
     const squareIndex = state.board.findIndex(s => s.id === propertyId);
     const square = state.board[squareIndex];
@@ -632,7 +632,7 @@ export function useMonopolyGame() {
 
   const unmortgageProperty = (propertyId) => {
     if (!isHost) { socket.emit("client_action", roomId, { type: "UNMORTGAGE", propertyId }); return; }
-    const state = stateRef.current;
+    const state = stateRef.current.gameState;
     const currentPlayer = state.players[state.currentPlayerIndex];
     const squareIndex = state.board.findIndex(s => s.id === propertyId);
     const square = state.board[squareIndex];
@@ -657,7 +657,7 @@ export function useMonopolyGame() {
 
   const sellHouse = (propertyId) => {
     if (!isHost) { socket.emit("client_action", roomId, { type: "SELL_HOUSE", propertyId }); return; }
-    const state = stateRef.current;
+    const state = stateRef.current.gameState;
     const currentPlayer = state.players[state.currentPlayerIndex];
     const squareIndex = state.board.findIndex(s => s.id === propertyId);
     const square = state.board[squareIndex];
@@ -697,10 +697,10 @@ export function useMonopolyGame() {
     if (!isHost) { socket.emit("client_action", roomId, { type: "PROPOSE_TRADE", trade }); return; }
     setGameState(prev => ({ ...prev, tradeOffer: trade }));
     
-    const targetPlayer = stateRef.current.players.find(p => p.id === trade.to);
+    const targetPlayer = stateRef.current.gameState.players.find(p => p.id === trade.to);
     if (targetPlayer && targetPlayer.isBot) {
       setTimeout(() => {
-        const state = stateRef.current;
+        const state = stateRef.current.gameState;
         const offerValue = trade.offerMoney + trade.offerProperties.reduce((sum, id) => sum + (state.board.find(s => s.id === id)?.price || 0), 0);
         const requestValue = trade.requestMoney + trade.requestProperties.reduce((sum, id) => sum + (state.board.find(s => s.id === id)?.price || 0), 0);
         
@@ -715,7 +715,7 @@ export function useMonopolyGame() {
 
   const acceptTrade = () => {
     if (!isHost) { socket.emit("client_action", roomId, { type: "ACCEPT_TRADE" }); return; }
-    const state = stateRef.current;
+    const state = stateRef.current.gameState;
     const trade = state.tradeOffer;
     if (!trade) return;
     
@@ -761,7 +761,7 @@ export function useMonopolyGame() {
 
   const rejectTrade = () => {
     if (!isHost) { socket.emit("client_action", roomId, { type: "REJECT_TRADE" }); return; }
-    const state = stateRef.current;
+    const state = stateRef.current.gameState;
     const trade = state.tradeOffer;
     if (!trade) return;
     const p2 = state.players.find(p => p.id === trade.to);
@@ -778,7 +778,7 @@ export function useMonopolyGame() {
       socket.emit("client_action", roomId, { type: "BUY" });
       return;
     }
-    const state = stateRef.current;
+    const state = stateRef.current.gameState;
     const currentPlayer = state.players[state.currentPlayerIndex];
     const square = state.board[currentPlayer.position];
     if (!square.price) return;
@@ -815,7 +815,7 @@ export function useMonopolyGame() {
       socket.emit("client_action", roomId, { type: "RESOLVE_CARD" });
       return;
     }
-    const state = stateRef.current;
+    const state = stateRef.current.gameState;
     const currentPlayer = state.players[state.currentPlayerIndex];
     const card = state.drawnCard;
 
@@ -849,7 +849,7 @@ export function useMonopolyGame() {
       socket.emit("client_action", roomId, { type: "END_TURN" });
       return;
     }
-    const state = stateRef.current;
+    const state = stateRef.current.gameState;
     let nextState = { ...state };
     const currentPlayer = state.players[state.currentPlayerIndex];
 
@@ -902,7 +902,7 @@ export function useMonopolyGame() {
       socket.emit("client_action", roomId, { type: "PAY_JAIL" });
       return;
     }
-    const state = stateRef.current;
+    const state = stateRef.current.gameState;
     const currentPlayer = state.players[state.currentPlayerIndex];
     if (currentPlayer.money >= 50) {
       playSound("pay", volume);
@@ -922,7 +922,7 @@ export function useMonopolyGame() {
   };
 
   const handleClientAction = (action, clientId) => {
-    const state = stateRef.current;
+    const state = stateRef.current.gameState;
     const currentPlayer = state.players[state.currentPlayerIndex];
     
     // For trade responses, the sender must be the target of the trade
@@ -1006,7 +1006,7 @@ export function useMonopolyGame() {
         if (prev.timeLeft <= 1) {
           // Auto-play when time runs out
           setTimeout(() => {
-            const currentState = stateRef.current;
+            const currentState = stateRef.current.gameState;
             if (currentState.phase === "roll") rollDice();
             else if (currentState.phase === "action") endTurn();
             else if (currentState.phase === "drawing_card") resolveCard();

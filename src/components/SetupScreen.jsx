@@ -125,7 +125,7 @@ export const SetupScreen = ({ game }) => {
 
                 {game.isHost && user.id !== game.myId && (
                   <button
-                    onClick={() => game.kickPlayer(user.id)}
+                    onClick={() => user.isBot ? game.removeBot(user.id) : game.kickPlayer(user.id)}
                     className="p-2 text-red-500 opacity-0 group-hover:opacity-100 hover:bg-red-500/10 rounded-lg transition-all"
                   >
                     <Trash2 size={20} />
@@ -144,17 +144,26 @@ export const SetupScreen = ({ game }) => {
             {t("leaveRoom")}
           </button>
           {game.isHost && (
-            <button
-              onClick={() => game.startGame()}
-              disabled={game.lobbyUsers.length < 2}
-              className={`flex-[2] py-4 rounded-2xl font-bold text-xl flex items-center justify-center gap-2 shadow-xl transition-all ${
-                game.lobbyUsers.length >= 2
-                  ? "bg-emerald-600 hover:bg-emerald-500 hover:scale-[1.02] active:scale-[0.98]"
-                  : "bg-gray-600 opacity-50 cursor-not-allowed"
-              }`}
-            >
-              <Play size={24} fill="currentColor" /> {t("startGame")}
-            </button>
+            <>
+              <button
+                onClick={() => game.addBot()}
+                disabled={game.lobbyUsers.length >= 6}
+                className="flex-1 py-4 glass rounded-2xl font-bold hover:bg-white/10 transition-all flex items-center justify-center gap-2"
+              >
+                <Ghost size={20} /> {t("addBot")}
+              </button>
+              <button
+                onClick={() => game.startGame()}
+                disabled={game.lobbyUsers.length < 2}
+                className={`flex-[2] py-4 rounded-2xl font-bold text-xl flex items-center justify-center gap-2 shadow-xl transition-all ${
+                  game.lobbyUsers.length >= 2
+                    ? "bg-emerald-600 hover:bg-emerald-500 hover:scale-[1.02] active:scale-[0.98]"
+                    : "bg-gray-600 opacity-50 cursor-not-allowed"
+                }`}
+              >
+                <Play size={24} fill="currentColor" /> {t("startGame")}
+              </button>
+            </>
           )}
         </div>
       </motion.div>
