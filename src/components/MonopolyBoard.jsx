@@ -52,6 +52,8 @@ const MonopolyBoard = () => {
     }
   }, [game.lastActionMessage]);
 
+  const isMyTurn = !game.currentPlayer?.isBot && (game.currentPlayer?.id === game.myId || (game.currentPlayer?.isLocal && game.isHost));
+
   const handleCameraClick = (mode) => {
     setViewMode(prev => prev === mode ? "auto" : mode);
   };
@@ -91,7 +93,6 @@ const MonopolyBoard = () => {
         
         // If it's not our turn, we only follow the active player if they are moving or rolling
         // Otherwise, we look at our own piece
-        const isMyTurn = !game.currentPlayer?.isBot && (game.currentPlayer?.id === game.myId || (game.currentPlayer?.isLocal && game.isHost));
         if (!isMyTurn && !["moving", "rolling", "dice_result"].includes(game.phase)) {
            targetPlayer = game.players.find(p => p.id === game.myId) || game.currentPlayer;
         }
@@ -325,8 +326,6 @@ const MonopolyBoard = () => {
     );
   };
 
-  const isMyTurn = !game.currentPlayer?.isBot && (game.currentPlayer?.id === game.myId || (game.currentPlayer?.isLocal && game.isHost));
-
   return (
     <div className="min-h-screen w-full flex items-center justify-center p-4 relative overflow-hidden">
       {/* Status Window */}
@@ -425,12 +424,7 @@ const MonopolyBoard = () => {
                   ) : (
                     game.currentPlayerIndex === i ? null : (
                       // Only show trade button if it's MY turn (or I'm host and it's a local human's turn)
-                      (() => {
-                        const currentP = game.players[game.currentPlayerIndex];
-                        if (!currentP) return false;
-                        const isMyTurn = currentP.id === game.myId || (currentP.isLocal && !currentP.isBot && game.isHost);
-                        return isMyTurn;
-                      })() && (
+                      isMyTurn && (
                         <button
                           onClick={() => setTradeTargetId(player.id)}
                           className="text-[9px] bg-amber-100 hover:bg-amber-200 text-amber-700 px-1.5 py-0.5 rounded-full font-bold uppercase shrink-0 transition-colors"
@@ -675,7 +669,7 @@ const MonopolyBoard = () => {
       {/* Settings Modal */}
       <AnimatePresence>
         {showSettings && (
-          <SettingsMenu onClose={() => setShowSettings(false)} />
+          <SettingsMenu game={game} onClose={() => setShowSettings(false)} />
         )}
       </AnimatePresence>
 

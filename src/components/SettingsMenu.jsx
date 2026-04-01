@@ -3,7 +3,7 @@ import { X, Volume2, Moon, Sun, Languages, Type, DollarSign } from "lucide-react
 import { motion } from "motion/react";
 import { useSettings, CURRENCY_SYMBOLS } from "../SettingsContext";
 
-export const SettingsMenu = ({ onClose }) => {
+export const SettingsMenu = ({ game, onClose }) => {
   const {
     volume,
     setVolume,
@@ -28,7 +28,7 @@ export const SettingsMenu = ({ onClose }) => {
       <motion.div
         initial={{ scale: 0.9, y: 20 }}
         animate={{ scale: 1, y: 0 }}
-        className="w-full max-w-md glass p-8 rounded-3xl border border-white/20 shadow-2xl relative"
+        className="w-full max-w-md glass p-8 rounded-3xl border border-white/20 shadow-2xl relative max-h-[90vh] overflow-y-auto"
       >
         <button
           onClick={onClose}
@@ -43,6 +43,24 @@ export const SettingsMenu = ({ onClose }) => {
         </h2>
 
         <div className="space-y-8">
+          {/* Host Sync Button */}
+          {game?.isHost && game?.phase !== "setup" && (
+            <div className="space-y-4">
+              <label className="font-bold flex items-center gap-2">
+                <DollarSign size={20} /> {t("hostControls")}
+              </label>
+              <button
+                onClick={() => {
+                  game.syncState();
+                  onClose();
+                }}
+                className="w-full py-3 bg-blue-600 hover:bg-blue-500 rounded-xl font-bold transition-all shadow-lg"
+              >
+                {t("syncGameState")}
+              </button>
+            </div>
+          )}
+
           {/* Volume */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">

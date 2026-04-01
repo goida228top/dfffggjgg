@@ -12,6 +12,11 @@ export function useMonopolyGame() {
   const [isHost, setIsHost] = useState(false);
   const [myId, setMyId] = useState(userId);
   const [lobbyUsers, setLobbyUsers] = useState([]);
+
+  useEffect(() => {
+    if (userId) setMyId(userId);
+  }, [userId]);
+
   const [roomsList, setRoomsList] = useState([]);
   // Local state for Host (or fallback)
   const [gameState, setGameState] = useState({
@@ -59,7 +64,11 @@ export function useMonopolyGame() {
       setTotalPlayers(settings.totalPlayers || 4);
       setIsHost(serverIsHost);
       if (serverGameState) {
-        setGameState(serverGameState);
+        const syncedPlayers = serverGameState.players.map((p) => ({
+          ...p,
+          isLocal: p.id === stateRef.current.myId || !!p.isBot || !!p.isLocal,
+        }));
+        setGameState({ ...serverGameState, players: syncedPlayers });
       } else {
         setGameState((prev) => ({
           ...prev,
@@ -72,10 +81,10 @@ export function useMonopolyGame() {
     socket.on("room_users", (users) => {
       const mappedUsers = users.map((u) => ({
         ...u,
-        isLocal: u.id === myId || !!u.isBot,
+        isLocal: u.id === stateRef.current.myId || !!u.isBot || !!u.isLocal,
       }));
       setLobbyUsers(mappedUsers);
-      const me = mappedUsers.find((u) => u.id === myId);
+      const me = mappedUsers.find((u) => u.id === stateRef.current.myId);
       if (me) {
         setIsHost(me.isHost);
       }
@@ -87,7 +96,11 @@ export function useMonopolyGame() {
 
     socket.on("game_state", (state) => {
       if (!stateRef.current.isHost || stateRef.current.gameState.phase === "setup") {
-        setGameState(state);
+        const syncedPlayers = state.players.map((p) => ({
+          ...p,
+          isLocal: p.id === stateRef.current.myId || !!p.isBot || !!p.isLocal,
+        }));
+        setGameState({ ...state, players: syncedPlayers });
       }
     });
 
@@ -238,7 +251,7 @@ export function useMonopolyGame() {
       jailTurns: 0,
       laps: 0,
       isBot: !!u.isBot,
-      isLocal: u.id === myId || !!u.isBot,
+      isLocal: u.id === myId || !!u.isBot || !!u.isLocal,
     }));
     setGameState((prev) => ({
       ...prev,
@@ -283,31 +296,37 @@ export function useMonopolyGame() {
       return;
     }
     const state = stateRef.current.gameState;
-    if (!state || !state.players || state.currentPlayerIndex === undefined) {
-      console.error("Invalid game state in rollDice", state);
-      return;
-    }
+    if (!state || !state.players || state.currentPlayerIndex === undefined) return;
     const currentPlayer = state.players[state.currentPlayerIndex];
-    if (!currentPlayer) {
-      console.error("Current player not found in rollDice", state.currentPlayerIndex);
-      return;
-    }
+    if (!currentPlayer) return;
+
+    // Determine final result immediately
+    const finalD1 = Math.floor(Math.random() * 6) + 1;
+    const finalD2 = Math.floor(Math.random() * 6) + 1;
+    const total = finalD1 + finalD2;
+
     playSound("roll", volume);
-    setGameState((prev) => ({ ...prev, phase: "rolling", statusMessage: currentPlayer.inJail ? t("rollingForDoublesStatus", { player: currentPlayer.name }) : t("rollingDice", { player: currentPlayer.name }) }));
-    let d1 = 1,
-      d2 = 1;
-    for (let i = 0; i < 15; i++) {
-      d1 = Math.floor(Math.random() * 6) + 1;
-      d2 = Math.floor(Math.random() * 6) + 1;
+    
+    // Start rolling animation (fewer steps to reduce traffic)
+    setGameState((prev) => ({ 
+      ...prev, 
+      phase: "rolling", 
+      statusMessage: currentPlayer.inJail ? t("rollingForDoublesStatus", { player: currentPlayer.name }) : t("rollingDice", { player: currentPlayer.name }) 
+    }));
+
+    for (let i = 0; i < 6; i++) {
+      const d1 = Math.floor(Math.random() * 6) + 1;
+      const d2 = Math.floor(Math.random() * 6) + 1;
       setGameState((prev) => ({ ...prev, dice: [d1, d2] }));
-      await new Promise((res) => setTimeout(res, 100));
+      await new Promise((res) => setTimeout(res, 150));
     }
     
-    // Pause on final result so players can see it clearly
-    setGameState((prev) => ({ ...prev, phase: "dice_result" }));
-    await new Promise((res) => setTimeout(res, 1500));
+    // Set final result
+    setGameState((prev) => ({ ...prev, dice: [finalD1, finalD2], phase: "dice_result" }));
+    await new Promise((res) => setTimeout(res, 800));
 
-    const total = d1 + d2;
+    const d1 = finalD1;
+    const d2 = finalD2;
     addLog("rolled", { player: currentPlayer.name, d1, d2, total });
 
     if (currentPlayer.inJail) {
@@ -386,44 +405,39 @@ export function useMonopolyGame() {
     if (!initialPlayer) return;
 
     setGameState((prev) => ({ ...prev, phase: "moving", statusMessage: t("movingStatus", { player: initialPlayer.name }) }));
-    let state = stateRef.current.gameState;
-    let currentPlayer = state.players[state.currentPlayerIndex];
-    if (!currentPlayer) return;
-    let currentPos = currentPlayer.position;
-    let currentMoney =
-      startingMoney !== undefined ? startingMoney : currentPlayer.money;
-    let currentLaps = currentPlayer.laps;
+    
+    let currentPos = initialPlayer.position;
+    let currentMoney = startingMoney !== undefined ? startingMoney : initialPlayer.money;
+    let currentLaps = initialPlayer.laps;
 
     for (let i = 1; i <= steps; i++) {
-      currentPos++;
-      if (currentPos >= 40) {
-        currentPos = 0;
+      currentPos = (currentPos + 1) % 40;
+      if (currentPos === 0) {
         currentMoney += 200;
         currentLaps += 1;
-        addLog("passedGo", { player: currentPlayer.name });
+        addLog("passedGo", { player: initialPlayer.name });
       }
-      setGameState((prev) => ({
-        ...prev,
-        players: prev.players.map((p) =>
-          p.id === currentPlayer.id
-            ? {
-                ...p,
-                position: currentPos,
-                money: currentMoney,
-                laps: currentLaps,
-              }
-            : p,
-        ),
-      }));
+      
+      // Only broadcast every 2 steps or the last step to reduce traffic
+      const shouldBroadcast = i % 2 === 0 || i === steps;
+      
+      if (shouldBroadcast) {
+        setGameState((prev) => ({
+          ...prev,
+          players: prev.players.map((p) =>
+            p.id === initialPlayer.id
+              ? { ...p, position: currentPos, money: currentMoney, laps: currentLaps }
+              : p
+          ),
+        }));
+      }
+      
       playSound("move", volume);
-      await new Promise((res) => setTimeout(res, 400));
+      await new Promise((res) => setTimeout(res, 300));
     }
 
-    state = stateRef.current.gameState;
-    currentPlayer = state.players[state.currentPlayerIndex];
-    if (checkWinCondition(state.players, state.maxLaps)) {
-      return;
-    }
+    const state = stateRef.current.gameState;
+    if (checkWinCondition(state.players, state.maxLaps)) return;
 
     handleLanding(currentPos, currentMoney);
   };
@@ -994,7 +1008,7 @@ export function useMonopolyGame() {
     }
 
     if (!isAuthorized) {
-      console.warn(`handleClientAction: Unauthorized action ${action.type} from ${clientId}. Current player is ${currentPlayer.id}`);
+      console.warn(`handleClientAction: Unauthorized action ${action.type} from client ${clientId}. Current player is ${currentPlayer.name} (ID: ${currentPlayer.id}, isLocal: ${currentPlayer.isLocal}). My ID is ${myId}.`);
       return;
     }
 
@@ -1135,6 +1149,12 @@ export function useMonopolyGame() {
     return () => clearTimeout(timer);
   }, [gameState.phase, gameState.currentPlayerIndex, isHost, gameState.board, gameState.players[gameState.currentPlayerIndex]?.inJail]);
 
+  const syncState = () => {
+    if (isHost && roomId) {
+      socket.emit("host_state", roomId, gameState);
+    }
+  };
+
   return {
     ...gameState,
     currentPlayer: gameState.players[gameState.currentPlayerIndex],
@@ -1167,5 +1187,6 @@ export function useMonopolyGame() {
     proposeTrade,
     acceptTrade,
     rejectTrade,
+    syncState,
   };
 }
