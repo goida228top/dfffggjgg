@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { Users, Play, Plus, Minus, Infinity as InfinityIcon, Trash2, Shield, UserPlus, Palette, Ghost } from "lucide-react";
+import { Users, Play, Plus, Minus, Infinity as InfinityIcon, Trash2, Shield, UserPlus, Palette, Ghost, User } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useSettings } from "../SettingsContext";
 import TokenIcon from "./TokenIcon";
@@ -145,20 +145,6 @@ export const SetupScreen = ({ game }) => {
           </button>
           {game.isHost && (
             <>
-              <button
-                onClick={() => game.addLocalPlayer()}
-                disabled={game.lobbyUsers.length >= 6}
-                className="flex-1 py-4 glass rounded-2xl font-bold hover:bg-white/10 transition-all flex items-center justify-center gap-2"
-              >
-                <User size={20} /> {t("addLocalPlayer")}
-              </button>
-              <button
-                onClick={() => game.addBot()}
-                disabled={game.lobbyUsers.length >= 6}
-                className="flex-1 py-4 glass rounded-2xl font-bold hover:bg-white/10 transition-all flex items-center justify-center gap-2"
-              >
-                <Ghost size={20} /> {t("addBot")}
-              </button>
               <button
                 onClick={() => game.startGame()}
                 disabled={game.lobbyUsers.length < 2}
