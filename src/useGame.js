@@ -14,6 +14,7 @@ export function useMonopolyGame() {
   const [lobbyUsers, setLobbyUsers] = useState([]);
 
   useEffect(() => {
+    console.log(`[GAME] userId changed: ${userId}`);
     if (userId) setMyId(userId);
   }, [userId]);
 
@@ -36,7 +37,9 @@ export function useMonopolyGame() {
   });
 
   const stateRef = useRef({ gameState, myId, isHost });
-  stateRef.current = { gameState, myId, isHost };
+  useEffect(() => {
+    stateRef.current = { gameState, myId, isHost };
+  }, [gameState, myId, isHost]);
 
   // Sync state to clients if Host
   useEffect(() => {
@@ -46,10 +49,14 @@ export function useMonopolyGame() {
   }, [gameState, isHost, roomId]);
 
   useEffect(() => {
+    console.log(`[GAME] Initializing socket listeners. MyId: ${myId}`);
+    
     socket.on("connect", () => {
+      console.log(`[GAME] Connected to server. SocketId: ${socket.id}`);
       const savedRoomId = localStorage.getItem("monopoly_room_id");
-      if (savedRoomId && myId) {
-        socket.emit("reconnect_room", savedRoomId, myId);
+      if (savedRoomId && stateRef.current.myId) {
+        console.log(`[GAME] Attempting to reconnect to room ${savedRoomId} with myId ${stateRef.current.myId}`);
+        socket.emit("reconnect_room", savedRoomId, stateRef.current.myId);
       }
     });
 
@@ -58,12 +65,14 @@ export function useMonopolyGame() {
     });
 
     socket.on("room_joined", ({ id, name, settings, isHost: serverIsHost, gameState: serverGameState }) => {
+      console.log(`[GAME] Joined room ${id}. MyId: ${stateRef.current.myId}, isHost: ${serverIsHost}`);
       setRoomId(id);
       localStorage.setItem("monopoly_room_id", id);
       setRoomName(name);
       setTotalPlayers(settings.totalPlayers || 4);
       setIsHost(serverIsHost);
       if (serverGameState) {
+        console.log(`[GAME] Received initial game state. Phase: ${serverGameState.phase}`);
         const syncedPlayers = serverGameState.players.map((p) => ({
           ...p,
           isLocal: p.id === stateRef.current.myId || !!p.isBot || !!p.isLocal,
@@ -79,6 +88,7 @@ export function useMonopolyGame() {
     });
 
     socket.on("room_users", (users) => {
+      console.log(`[GAME] Room users updated. Count: ${users.length}`);
       const mappedUsers = users.map((u) => ({
         ...u,
         isLocal: u.id === stateRef.current.myId || !!u.isBot || !!u.isLocal,
@@ -96,6 +106,7 @@ export function useMonopolyGame() {
 
     socket.on("game_state", (state) => {
       if (!stateRef.current.isHost || stateRef.current.gameState.phase === "setup") {
+        console.log(`[GAME] Received game state from host. Phase: ${state.phase}, CurrentPlayerIdx: ${state.currentPlayerIndex}`);
         const syncedPlayers = state.players.map((p) => ({
           ...p,
           isLocal: p.id === stateRef.current.myId || !!p.isBot || !!p.isLocal,
@@ -120,6 +131,7 @@ export function useMonopolyGame() {
 
     socket.on("client_action", (action, clientId) => {
       if (stateRef.current.isHost) {
+        console.log(`[GAME] Host received action ${action.type} from client ${clientId}`);
         handleClientAction(action, clientId);
       }
     });
@@ -291,11 +303,14 @@ export function useMonopolyGame() {
   };
 
   const rollDice = async () => {
+    const { isHost, gameState, myId } = stateRef.current;
+    console.log(`[GAME] rollDice called. isHost: ${isHost}, phase: ${gameState.phase}`);
     if (!isHost) {
+      console.log(`[GAME] Emitting ROLL action to server`);
       socket.emit("client_action", roomId, { type: "ROLL" });
       return;
     }
-    const state = stateRef.current.gameState;
+    const state = gameState;
     if (!state || !state.players || state.currentPlayerIndex === undefined) return;
     const currentPlayer = state.players[state.currentPlayerIndex];
     if (!currentPlayer) return;
@@ -582,11 +597,12 @@ export function useMonopolyGame() {
   };
 
   const buildHouse = (propertyId) => {
+    const { isHost, gameState } = stateRef.current;
     if (!isHost) {
       socket.emit("client_action", roomId, { type: "BUILD_HOUSE", propertyId });
       return;
     }
-    const state = stateRef.current.gameState;
+    const state = gameState;
     if (!state || !state.players || state.currentPlayerIndex === undefined) return;
     const currentPlayer = state.players[state.currentPlayerIndex];
     if (!currentPlayer) return;
@@ -646,8 +662,9 @@ export function useMonopolyGame() {
   };
 
   const mortgageProperty = (propertyId) => {
+    const { isHost, gameState } = stateRef.current;
     if (!isHost) { socket.emit("client_action", roomId, { type: "MORTGAGE", propertyId }); return; }
-    const state = stateRef.current.gameState;
+    const state = gameState;
     const currentPlayer = state.players[state.currentPlayerIndex];
     const squareIndex = state.board.findIndex(s => s.id === propertyId);
     const square = state.board[squareIndex];
@@ -674,8 +691,9 @@ export function useMonopolyGame() {
   };
 
   const unmortgageProperty = (propertyId) => {
+    const { isHost, gameState } = stateRef.current;
     if (!isHost) { socket.emit("client_action", roomId, { type: "UNMORTGAGE", propertyId }); return; }
-    const state = stateRef.current.gameState;
+    const state = gameState;
     const currentPlayer = state.players[state.currentPlayerIndex];
     const squareIndex = state.board.findIndex(s => s.id === propertyId);
     const square = state.board[squareIndex];
@@ -699,8 +717,9 @@ export function useMonopolyGame() {
   };
 
   const sellHouse = (propertyId) => {
+    const { isHost, gameState } = stateRef.current;
     if (!isHost) { socket.emit("client_action", roomId, { type: "SELL_HOUSE", propertyId }); return; }
-    const state = stateRef.current.gameState;
+    const state = gameState;
     const currentPlayer = state.players[state.currentPlayerIndex];
     const squareIndex = state.board.findIndex(s => s.id === propertyId);
     const square = state.board[squareIndex];
@@ -737,10 +756,11 @@ export function useMonopolyGame() {
   };
 
   const proposeTrade = (trade) => {
+    const { isHost, gameState } = stateRef.current;
     if (!isHost) { socket.emit("client_action", roomId, { type: "PROPOSE_TRADE", trade }); return; }
     setGameState(prev => ({ ...prev, tradeOffer: trade }));
     
-    const state = stateRef.current.gameState;
+    const state = gameState;
     if (!state || !state.players) return;
     const targetPlayer = state.players.find(p => p.id === trade.to);
     if (targetPlayer && targetPlayer.isBot) {
@@ -760,8 +780,9 @@ export function useMonopolyGame() {
   };
 
   const acceptTrade = () => {
+    const { isHost, gameState, myId } = stateRef.current;
     if (!isHost) { socket.emit("client_action", roomId, { type: "ACCEPT_TRADE" }); return; }
-    const state = stateRef.current.gameState;
+    const state = gameState;
     const trade = state.tradeOffer;
     if (!trade) return;
     
@@ -806,8 +827,9 @@ export function useMonopolyGame() {
   };
 
   const rejectTrade = () => {
+    const { isHost, gameState } = stateRef.current;
     if (!isHost) { socket.emit("client_action", roomId, { type: "REJECT_TRADE" }); return; }
-    const state = stateRef.current.gameState;
+    const state = gameState;
     const trade = state.tradeOffer;
     if (!trade) return;
     const p2 = state.players.find(p => p.id === trade.to);
@@ -820,11 +842,12 @@ export function useMonopolyGame() {
   };
 
   const buyProperty = () => {
+    const { isHost, gameState } = stateRef.current;
     if (!isHost) {
       socket.emit("client_action", roomId, { type: "BUY" });
       return;
     }
-    const state = stateRef.current.gameState;
+    const state = gameState;
     if (!state || !state.players || state.currentPlayerIndex === undefined) return;
     const currentPlayer = state.players[state.currentPlayerIndex];
     if (!currentPlayer) return;
@@ -859,11 +882,12 @@ export function useMonopolyGame() {
   };
 
   const resolveCard = () => {
+    const { isHost, gameState } = stateRef.current;
     if (!isHost) {
       socket.emit("client_action", roomId, { type: "RESOLVE_CARD" });
       return;
     }
-    const state = stateRef.current.gameState;
+    const state = gameState;
     const currentPlayer = state.players[state.currentPlayerIndex];
     const card = state.drawnCard;
 
@@ -893,11 +917,14 @@ export function useMonopolyGame() {
   };
 
   const endTurn = () => {
+    const { isHost, gameState, myId } = stateRef.current;
+    console.log(`[GAME] endTurn called. isHost: ${isHost}`);
     if (!isHost) {
+      console.log(`[GAME] Emitting END_TURN action to server`);
       socket.emit("client_action", roomId, { type: "END_TURN" });
       return;
     }
-    const state = stateRef.current.gameState;
+    const state = gameState;
     if (!state || !state.players || state.currentPlayerIndex === undefined) return;
     const currentPlayer = state.players[state.currentPlayerIndex];
     if (!currentPlayer) return;
@@ -948,11 +975,14 @@ export function useMonopolyGame() {
   };
 
   const payToLeaveJail = () => {
+    const { isHost, gameState, myId } = stateRef.current;
+    console.log(`[GAME] payToLeaveJail called. isHost: ${isHost}`);
     if (!isHost) {
+      console.log(`[GAME] Emitting PAY_JAIL action to server`);
       socket.emit("client_action", roomId, { type: "PAY_JAIL" });
       return;
     }
-    const state = stateRef.current.gameState;
+    const state = gameState;
     if (!state || !state.players || state.currentPlayerIndex === undefined) return;
     const currentPlayer = state.players[state.currentPlayerIndex];
     if (!currentPlayer) return;
@@ -975,7 +1005,9 @@ export function useMonopolyGame() {
   };
 
   const handleClientAction = (action, clientId) => {
-    const state = stateRef.current.gameState;
+    const { gameState, myId } = stateRef.current;
+    const state = gameState;
+    console.log(`[GAME] handleClientAction: ${action.type} from client ${clientId}. CurrentPlayer: ${state?.players?.[state?.currentPlayerIndex]?.id}, Phase: ${state?.phase}`);
     if (!state || !state.players || state.currentPlayerIndex === undefined) {
       console.error("handleClientAction: Invalid game state", state);
       return;
@@ -1004,13 +1036,16 @@ export function useMonopolyGame() {
 
     // If the host is performing an action for a local player (bot or host's own player), it's authorized
     if (clientId === myId && currentPlayer.isLocal) {
+      console.log(`[GAME] Host authorized action for local player ${currentPlayer.name} (ID: ${currentPlayer.id})`);
       isAuthorized = true;
     }
 
     if (!isAuthorized) {
-      console.warn(`handleClientAction: Unauthorized action ${action.type} from client ${clientId}. Current player is ${currentPlayer.name} (ID: ${currentPlayer.id}, isLocal: ${currentPlayer.isLocal}). My ID is ${myId}.`);
+      console.warn(`[GAME] handleClientAction: Unauthorized action ${action.type} from client ${clientId}. Current player is ${currentPlayer.name} (ID: ${currentPlayer.id}, isLocal: ${currentPlayer.isLocal}). My ID is ${myId}.`);
       return;
     }
+
+    console.log(`[GAME] Action ${action.type} authorized and processing...`);
 
     switch (action.type) {
       case "ROLL":

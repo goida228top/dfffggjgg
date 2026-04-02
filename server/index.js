@@ -352,6 +352,7 @@ async function startServer() {
     socket.on("host_state", (roomId, state) => {
       const room = rooms.get(roomId);
       if (room) {
+        console.log(`[SERVER] Received host_state for room ${roomId}. Phase: ${state.phase}, CurrentPlayerIdx: ${state.currentPlayerIndex}`);
         room.gameState = state;
       }
       socket.to(roomId).emit("game_state", state);
@@ -359,14 +360,22 @@ async function startServer() {
 
     socket.on("client_action", (roomId, action) => {
       const connection = socketMap.get(socket.id);
-      if (!connection) return;
+      if (!connection) {
+        console.warn(`[SERVER] client_action from unknown socket ${socket.id}`);
+        return;
+      }
       const { userId } = connection;
       const room = rooms.get(roomId);
       if (room && room.hostId) {
+        console.log(`[SERVER] Forwarding action ${action.type} from user ${userId} to host ${room.hostId} in room ${roomId}`);
         const hostUser = room.users.get(room.hostId);
         if (hostUser && hostUser.socketId) {
           io.to(hostUser.socketId).emit("client_action", action, userId);
+        } else {
+          console.error(`[SERVER] Host user ${room.hostId} not found or has no socketId in room ${roomId}`);
         }
+      } else {
+        console.warn(`[SERVER] Room ${roomId} not found or has no host for client_action ${action.type}`);
       }
     });
 

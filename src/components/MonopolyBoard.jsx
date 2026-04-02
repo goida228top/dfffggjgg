@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   Settings,
   Users,
@@ -53,6 +53,12 @@ const MonopolyBoard = () => {
   }, [game.lastActionMessage]);
 
   const isMyTurn = !game.currentPlayer?.isBot && (game.currentPlayer?.id === game.myId || (game.currentPlayer?.isLocal && game.isHost));
+  
+  React.useEffect(() => {
+    if (game.currentPlayer) {
+      console.log(`[BOARD] Turn check: CurrentPlayerId=${game.currentPlayer.id}, MyId=${game.myId}, isLocal=${game.currentPlayer.isLocal}, isHost=${game.isHost}, isMyTurn=${isMyTurn}`);
+    }
+  }, [game.currentPlayer?.id, game.myId, game.isHost, isMyTurn]);
 
   const handleCameraClick = (mode) => {
     setViewMode(prev => prev === mode ? "auto" : mode);
