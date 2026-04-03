@@ -462,10 +462,10 @@ export const SettingsProvider = ({ children }) => {
     () => localStorage.getItem("playerColor") || colors[Math.floor(Math.random() * colors.length)],
   );
   const [userId] = useState(() => {
-    const saved = localStorage.getItem("monopoly_userId");
+    const saved = sessionStorage.getItem("monopoly_userId");
     if (saved) return saved;
     const newId = `user_${Math.random().toString(36).substring(2, 10)}`;
-    localStorage.setItem("monopoly_userId", newId);
+    sessionStorage.setItem("monopoly_userId", newId);
     return newId;
   });
 

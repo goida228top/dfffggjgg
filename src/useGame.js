@@ -36,10 +36,13 @@ export function useMonopolyGame() {
     doublesCount: 0,
   });
 
-  const stateRef = useRef({ gameState, myId, isHost });
+  const stateRef = useRef({ gameState, myId, isHost, volume, t, roomId });
+  const isProcessingActionRef = useRef(false);
+
   useEffect(() => {
-    stateRef.current = { gameState, myId, isHost };
-  }, [gameState, myId, isHost]);
+    stateRef.current = { gameState, myId, isHost, volume, t, roomId };
+    isProcessingActionRef.current = false; // Reset on state update
+  }, [gameState, myId, isHost, volume, t, roomId]);
 
   // Sync state to clients if Host
   useEffect(() => {
@@ -53,7 +56,7 @@ export function useMonopolyGame() {
     
     socket.on("connect", () => {
       console.log(`[GAME] Connected to server. SocketId: ${socket.id}`);
-      const savedRoomId = localStorage.getItem("monopoly_room_id");
+      const savedRoomId = sessionStorage.getItem("monopoly_room_id");
       if (savedRoomId && stateRef.current.myId) {
         console.log(`[GAME] Attempting to reconnect to room ${savedRoomId} with myId ${stateRef.current.myId}`);
         socket.emit("reconnect_room", savedRoomId, stateRef.current.myId);
@@ -67,7 +70,7 @@ export function useMonopolyGame() {
     socket.on("room_joined", ({ id, name, settings, isHost: serverIsHost, gameState: serverGameState }) => {
       console.log(`[GAME] Joined room ${id}. MyId: ${stateRef.current.myId}, isHost: ${serverIsHost}`);
       setRoomId(id);
-      localStorage.setItem("monopoly_room_id", id);
+      sessionStorage.setItem("monopoly_room_id", id);
       setRoomName(name);
       setTotalPlayers(settings.totalPlayers || 4);
       setIsHost(serverIsHost);
@@ -163,7 +166,7 @@ export function useMonopolyGame() {
   const leaveRoom = () => {
     if (roomId) {
       socket.emit("leave_room", roomId);
-      localStorage.removeItem("monopoly_room_id");
+      sessionStorage.removeItem("monopoly_room_id");
       setRoomId(null);
       setRoomName("");
       setIsHost(false);
@@ -312,6 +315,10 @@ export function useMonopolyGame() {
     }
     const state = gameState;
     if (!state || !state.players || state.currentPlayerIndex === undefined) return;
+    if (state.phase !== "roll") {
+      console.log(`[GAME] Ignoring rollDice because phase is ${state.phase}`);
+      return;
+    }
     const currentPlayer = state.players[state.currentPlayerIndex];
     if (!currentPlayer) return;
 
@@ -1044,6 +1051,12 @@ export function useMonopolyGame() {
       console.warn(`[GAME] handleClientAction: Unauthorized action ${action.type} from client ${clientId}. Current player is ${currentPlayer.name} (ID: ${currentPlayer.id}, isLocal: ${currentPlayer.isLocal}). My ID is ${myId}.`);
       return;
     }
+
+    if (isProcessingActionRef.current) {
+      console.log(`[GAME] Ignoring action ${action.type} because another action is processing.`);
+      return;
+    }
+    isProcessingActionRef.current = true;
 
     console.log(`[GAME] Action ${action.type} authorized and processing...`);
 

@@ -119,24 +119,28 @@ async function startServer() {
       const room = rooms.get(roomId);
       if (room && room.users.has(userId)) {
         const user = room.users.get(userId);
-        if (user.disconnected) {
-          user.disconnected = false;
-          user.socketId = socket.id;
-          socketMap.set(socket.id, { userId, roomId });
-          socket.join(roomId);
-          socket.emit("room_joined", {
-            id: roomId,
-            name: room.name,
-            settings: { ...room.settings, totalPlayers: room.totalPlayers },
-            isHost: room.hostId === userId,
-            gameState: room.gameState || null
-          });
-          io.to(roomId).emit("room_users", Array.from(room.users.values()));
-          
-          // Send current state to reconnected user
-          if (room.state === "playing" && room.gameState) {
-            socket.emit("game_state", room.gameState);
-          }
+        
+        // Always update socket mapping on reconnect, even if server didn't mark as disconnected yet
+        if (user.socketId && user.socketId !== socket.id) {
+          socketMap.delete(user.socketId);
+        }
+        
+        user.disconnected = false;
+        user.socketId = socket.id;
+        socketMap.set(socket.id, { userId, roomId });
+        socket.join(roomId);
+        socket.emit("room_joined", {
+          id: roomId,
+          name: room.name,
+          settings: { ...room.settings, totalPlayers: room.totalPlayers },
+          isHost: room.hostId === userId,
+          gameState: room.gameState || null
+        });
+        io.to(roomId).emit("room_users", Array.from(room.users.values()));
+        
+        // Send current state to reconnected user
+        if (room.state === "playing" && room.gameState) {
+          socket.emit("game_state", room.gameState);
         }
       }
     });
